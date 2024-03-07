@@ -1,17 +1,15 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import seaborn as sns
+import altair as alt
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import streamlit as st
 
-# Load data
+### Load data ###
 hour = pd.read_csv("./data/hour.csv")
 day = pd.read_csv("./data/day.csv")
 
-# Feature extraction : Tambahkan kolom 'day_type' untuk menandai apakah hari tersebut merupakan hari kerja atau hari libur
-hour['day_type'] = np.where(hour['weekday'] < 5, 'Hari Kerja', 'Hari Libur')
-
-# Functions
+### Get Dataframe Functions ###
 def create_seasonal_users_dataframe(original_dataframe):
     """
     Create a DataFrame summarizing bike sharing counts aggregated by seasons.
@@ -43,7 +41,7 @@ def create_seasonal_users_dataframe(original_dataframe):
     # Rename columns
     seasonal_users_df.rename(columns={
         "season" : "Musim",
-        "cnt": "Jumlah_Peminjaman",
+        "cnt": "Jumlah Peminjaman",
     }, inplace=True)
 
     # Map numerical season values to corresponding season names
@@ -56,32 +54,131 @@ def create_seasonal_users_dataframe(original_dataframe):
 
     return seasonal_users_df
 
+def create_day_type_users_dataframe(original_dataframe):
+    """
+    Buatlah dokumentasi
+    """
+
+    # Group the original dataframe by "season" and aggregate bike sharing counts
+    day_type_users_df = original_dataframe.groupby("workingday").agg({
+        "cnt": "mean"
+    })
+
+    # Reset the index to convert the grouped data back to a DataFrame
+    day_type_users_df = day_type_users_df.reset_index()
+
+    # Rename columns
+    day_type_users_df.rename(columns={
+        "workingday" : "Jenis Hari",
+        "cnt": "Rata-rata Jumlah Peminjaman",
+    }, inplace=True)
+
+    # Map numerical season values to corresponding season names
+    day_type_users_df["Jenis Hari"] = day_type_users_df["Jenis Hari"].replace({
+        0: 'Hari Libur',
+        1: 'Hari Kerja'
+    })
 
 
-# Sidebar for filter season
-season_filter = st.sidebar.multiselect('Select Season', hour['season'].unique(), default=1)
+    return day_type_users_df
 
-# Multiselect filter for day_type
-day_type_filter = st.sidebar.multiselect('Select Day Type', hour['day_type'].unique(), default=['Hari Kerja', 'Hari Libur'])
 
-# Filter data based on selected seasons and day types
-filtered_data = hour[(hour['season'].isin(season_filter)) & (hour['day_type'].isin(day_type_filter))]
 
-# Line chart for hourly bike rental trend in a day
-st.title('Hourly Bike Rental Trend')
-st.line_chart(filtered_data.groupby('hr')['cnt'].mean(), use_container_width=True, color="#FFA500")
+### Line Chart to Explore Full Dataset ###
+st.title('Dashboard Bike-Sharing Dataset')
 
-# Create two columns
+# Date range filter
+day['dteday'] = pd.to_datetime(day['dteday'])
+
+col1date, col2date = st.columns(2)
+
+with col1date:
+    start_date = pd.to_datetime(st.date_input("Start Date", day['dteday'].min()))
+
+with col2date:
+    end_date = pd.to_datetime(st.date_input("End Date", day['dteday'].max()))
+
+# Filter data based on date range
+filtered_data = day[(day['dteday'] >= start_date) & (day['dteday'] <= end_date)]
+
+# Rename columns (axis names)
+filtered_data.rename(columns={
+        "dteday" : "Waktu",
+        "cnt": "Jumlah Peminjaman",
+   }, inplace=True)
+
+# Line chart
+st.line_chart(filtered_data, x="Waktu", y="Jumlah Peminjaman", color='#FF8282')
+
+
+### Create two comparison columns ###
+
 col1, col2 = st.columns(2)
 
-# Left column: Display bar chart
+# Left column: Every Season Comparison
 with col1:
-    st.subheader('Total Peminjaman Sepeda per Musim')
-    chart_data = day.groupby('season')['cnt'].sum()
-    st.bar_chart(chart_data)
+    st.markdown("<h3 style='font-size: 18px;'>Perbandingan Setiap Musim</h3>", unsafe_allow_html=True)
+    bardata = create_seasonal_users_dataframe(hour)
 
-# Right column: Display statistical descriptions
+    # Create a horizontal bar chart using Altair
+    chart = alt.Chart(bardata).mark_bar(color='#FF8282').encode(
+        x='Jumlah Peminjaman:Q',
+        y=alt.Y('Musim:N', sort='-x')
+        ).properties(width=600, height=400)
+
+    st.altair_chart(chart, use_container_width=True)
+
+# Right column: WorkingDay vs non-WorkingDay Comparison
 with col2:
-    st.subheader('Statistik Deskriptif')
-    st.write(day.groupby('season')['cnt'].describe())
-    st.write(hour.groupby(['season', 'day_type'])['cnt'].describe())
+    st.markdown("<h3 style='font-size: 18px;'>Perbandingan Hari Kerja dan Libur</h3>", unsafe_allow_html=True)
+    bardata = create_day_type_users_dataframe(day)
+
+    # Create a horizontal bar chart using Altair
+    chart = alt.Chart(bardata).mark_bar(color='#FF8282').encode(
+        x='Rata-rata Jumlah Peminjaman:Q',
+        y=alt.Y('Jenis Hari:N', sort='-x')
+        ).properties(width=600, height=400)
+
+    st.altair_chart(chart, use_container_width=True)
+
+
+### Styling ###
+
+# Set the background color and text color for the entire app
+st.markdown(
+    """
+    <style>
+        body {
+            background-color: #0E1117;
+            color: #FAFAFA;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Set the primary color for the header and subheaders
+st.markdown(
+    """
+    <style>
+        h1, h2, h3 {
+            color: #FF4B4B;
+            text-align: center;
+
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Set the secondary background color for the columns
+st.markdown(
+    """
+    <style>
+        .element-container {
+            background-color: #262730;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)

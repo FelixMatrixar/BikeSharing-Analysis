@@ -23,7 +23,7 @@
    atau alternatifnya :
 
    ```
-   pip install jupyter matplotlib numpy pandas seaborn scipy streamlit babel
+   pip install altair jupyter matplotlib numpy pandas seaborn scipy streamlit babel
    ```
 
 ## Menjalankan Streamlit App
