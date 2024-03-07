@@ -1,5 +1,2 @@
-[colors]
-primary = "#FF4B4B"
-background = "#0E1117"
-text = "#FAFAFA"
-secondary_background = "#262730"
+[theme]
+base="dark"
